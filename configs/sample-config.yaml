@@ -1,0 +1,12 @@
+customer: dimarmen
+environment: dev
+
+azs:
+  - us-east-1a
+  - us-east-1b
+
+eks:
+  - size: small
+  - version: "1.28"
+  - public_access: true
+  - private_access: true

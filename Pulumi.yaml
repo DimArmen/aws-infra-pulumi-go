@@ -1,0 +1,13 @@
+name: aws-infra-pulumi
+runtime: go
+description: Dimarmen Sample AWS Infrastructure with Pulumi ang G
+
+config:
+  microstack:
+    type: string
+    description: The microstack to deploy (networking, s3, eks, etc.)
+    
+template:
+  config:
+    aws:region:
+      description: The AWS region for deployment
