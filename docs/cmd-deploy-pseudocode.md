@@ -12,11 +12,15 @@ BEGIN
     // Command Line Interface
     PARSE command_line_arguments
     
+    // Extract common parameters
+    config_file = GET config_file_from_args() OR "configs/sample-config.yaml"
+    
     SWITCH stage:
         CASE "init":
-            CALL initialize_infrastructure()
+            CALL initialize_infrastructure(config_file)
             
         CASE "vpc", "core", "apps":
+            action = GET action_from_args()
             CALL deploy_stage(stage, action, config_file)
             
         DEFAULT:
@@ -24,9 +28,8 @@ BEGIN
     END SWITCH
 END
 
-FUNCTION initialize_infrastructure():
+FUNCTION initialize_infrastructure(config_file):
 BEGIN
-    config_file = GET config_file_from_args()
     config = LOAD yaml_config(config_file)
     region = GET environment_variable("AWS_REGION")
     
@@ -207,7 +210,9 @@ dimarmen-apps-eks-addons-us-east-1
 ```
 
 This creates:
-- S3 state bucket with versioning
+- S3 state bucket with versioning and encryption
+- AWS Secrets Manager secrets
+- Route53 hosted zone
 - All microstack stacks for all stages
 
 ### Deploy Stages
@@ -231,6 +236,12 @@ This creates:
 
 # Destroy infrastructure  
 ./cmd-deploy apps down --config configs/sample-config.yaml
+
+# Use default config file
+./cmd-deploy vpc up
+
+# Use environment-specific config
+./cmd-deploy core up --config configs/production-config.yaml
 ```
 
 ## Benefits of Microstack Architecture

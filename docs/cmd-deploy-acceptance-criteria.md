@@ -17,35 +17,38 @@ The `cmd-deploy` tool is a CLI orchestrator that manages staged infrastructure d
 - ✅ Initialize all Pulumi stacks for all stages/microstacks
 - ✅ Warn user about DNS propagation requirements
 
-### 🏗️ Deploy Stages (`cmd-deploy [vpc|core|apps] [up|down|preview]`)
-**AC-02**: GIVEN I run `cmd-deploy vpc up`  
+### 🏗️ Deploy Stages (`cmd-deploy [vpc|core|apps] [up|down|preview] --config <file>`)
+**AC-02**: GIVEN I run `cmd-deploy vpc up --config configs/sample-config.yaml`  
 **WHEN** the command executes  
 **THEN** it SHALL:
-- ✅ Load configuration from YAML file
+- ✅ Load configuration from specified YAML file
 - ✅ Connect to S3 Pulumi backend
 - ✅ Process VPC microstacks in sequence: networking → acls
 - ✅ Execute `pulumi up` for each microstack
 - ✅ Pass microstack context to Pulumi program
 - ✅ Report success/failure for each microstack
 
-**AC-03**: GIVEN I run `cmd-deploy core up`  
+**AC-03**: GIVEN I run `cmd-deploy core up --config configs/production-config.yaml`  
 **WHEN** the command executes  
 **THEN** it SHALL:
+- ✅ Load configuration from specified YAML file
 - ✅ Process CORE microstacks in sequence: s3 → route53 → rds → eks → opensearch → cloudfront → certificates
 - ✅ Handle cross-stack dependencies automatically
 - ✅ Fail fast if prerequisites are missing
 
-**AC-04**: GIVEN I run `cmd-deploy apps up`  
+**AC-04**: GIVEN I run `cmd-deploy apps up` (without --config)  
 **WHEN** the command executes  
 **THEN** it SHALL:
+- ✅ Use default config file: `configs/sample-config.yaml`
 - ✅ Process APPS microstacks in sequence: eks-addons → helm-charts → storage-classes → ingress-classes
 - ✅ Validate EKS cluster exists before deployment
 
 ### 📋 Configuration Management
-**AC-05**: GIVEN a valid YAML config file  
+**AC-05**: GIVEN a valid YAML config file and `--config` parameter  
 **WHEN** the tool loads configuration  
 **THEN** it SHALL:
-- ✅ Parse customer, environment, domain, and region settings
+- ✅ Parse customer, environment, domain, and region settings from specified file
+- ✅ Use default `configs/sample-config.yaml` if `--config` not provided
 - ✅ Validate required fields are present
 - ✅ Pass configuration to Pulumi program via environment variables
 
@@ -71,11 +74,12 @@ The `cmd-deploy` tool is a CLI orchestrator that manages staged infrastructure d
 **AC-08**: GIVEN the CLI tool  
 **WHEN** users interact with it  
 **THEN** it SHALL:
-- ✅ Support `--config` flag for custom config files
+- ✅ Support `--config <file>` flag for custom config files (optional - defaults to `configs/sample-config.yaml`)
 - ✅ Respect `AWS_REGION` environment variable
 - ✅ Display helpful usage information with `--help`
 - ✅ Validate stage names: init, vpc, core, apps
 - ✅ Support actions: up, down, preview
+- ✅ Accept commands in format: `cmd-deploy <stage> <action> --config <file>`
 
 ## Success Metrics
 
