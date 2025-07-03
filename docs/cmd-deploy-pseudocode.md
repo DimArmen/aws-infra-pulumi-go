@@ -31,20 +31,36 @@ BEGIN
     region = GET environment_variable("AWS_REGION")
     
     REQUIRE region is not empty
+    REQUIRE config.domain is not empty
     
-    // Create S3 state bucket
+    PRINT "🚀 Starting infrastructure initialization..."
+    
+    // Step 1: Create S3 state bucket
+    PRINT "📦 Creating S3 state bucket..."
     bucket_name = FORMAT("pulumi-state-{env}-{customer}")
     
     IF bucket_exists(bucket_name):
-        PRINT "Bucket already exists"
+        PRINT "✅ S3 bucket already exists: " + bucket_name
     ELSE:
         CREATE s3_bucket(bucket_name, region)
         ENABLE versioning(bucket_name)
+        ENABLE encryption(bucket_name)
+        PRINT "✅ Created S3 bucket: " + bucket_name
     
-    // Configure Pulumi backend
+    // Step 2: Create AWS Secrets Manager secrets
+    PRINT "🔐 Creating AWS Secrets Manager secrets..."
+    CALL create_secrets_manager_secrets(config, region)
+    
+    // Step 3: Create Route53 hosted zone
+    PRINT "🌐 Creating Route53 hosted zone..."
+    hosted_zone_id = CALL create_route53_hosted_zone(config.domain, region)
+    
+    // Step 4: Configure Pulumi backend
+    PRINT "⚙️ Configuring Pulumi backend..."
     RUN_COMMAND("pulumi login s3://" + bucket_name)
     
-    // Create stacks for each stage
+    // Step 5: Create stacks for each stage
+    PRINT "📚 Creating Pulumi stacks..."
     FOR each stage in ["vpc", "core", "apps"]:
         microstacks = GET_MICROSTACKS_FOR_STAGE(stage)
         
@@ -52,11 +68,32 @@ BEGIN
             stack_name = FORMAT("{customer}-{stage}-{microstack}-{region}")
             TRY:
                 RUN_COMMAND("pulumi stack init " + stack_name)
-                PRINT "Created stack: " + stack_name
+                PRINT "✅ Created stack: " + stack_name
             CATCH:
-                PRINT "Stack " + stack_name + " may already exist, continuing..."
+                PRINT "⚠️ Stack " + stack_name + " may already exist, continuing..."
     
-    PRINT "✅ Initialization complete"
+    // Step 6: Display critical next steps
+    PRINT ""
+    PRINT "🎯 CRITICAL: Manual NS Configuration Required"
+    PRINT "=============================================="
+    PRINT "Before proceeding with deployment, you MUST configure the following:"
+    PRINT ""
+    PRINT "1. 📋 Copy these NS records from Route53 hosted zone '" + config.domain + "':"
+    ns_records = GET route53_ns_records(hosted_zone_id)
+    FOR each ns_record in ns_records:
+        PRINT "   " + ns_record
+    PRINT ""
+    PRINT "2. 🌐 Configure these NS records with your domain registrar for: " + config.domain
+    PRINT "3. ⏱️ Wait for DNS propagation (can take up to 48 hours)"
+    PRINT "4. ✅ Verify NS propagation: dig NS " + config.domain
+    PRINT ""
+    PRINT "⚠️ WARNING: DNS must propagate before running certificate deployment!"
+    PRINT ""
+    PRINT "✅ Initialization complete - Ready for stage deployment"
+    PRINT "Next steps:"
+    PRINT "  ./cmd-deploy vpc up --config " + config_file
+    PRINT "  ./cmd-deploy core up --config " + config_file  
+    PRINT "  ./cmd-deploy apps up --config " + config_file
 END
 
 FUNCTION deploy_stage(stage, action, config_file):
